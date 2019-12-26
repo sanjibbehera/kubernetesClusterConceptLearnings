@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: redis-db
+  labels:
+    environment: test
+    app: redis
+    type: database
+spec:
+  containers:
+  - name: redis
+    image: redis
+    ports:
+    - containerPort: 6379
+  schedulerName: my-customer-scheduler

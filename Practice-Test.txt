@@ -1,0 +1,81 @@
+$ cat nginx-pod-defn.yml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-pod
+
+spec:
+  containers:
+  - name: nginx-pod
+    image: nginx:alpine
+	
+-------------------------------------------LABEL...
+$ cat redis-pod.yml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: redis
+  labels:
+    app: redis
+    tier: db
+
+spec:
+  containers:
+  - name: redis
+    image: redis:alpine
+
+=================================================
+$ cat redis-service.yml
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+
+spec:
+  type: ClusterIP
+  ports:
+  - targetPort: 6379
+    port: 6379
+  selector:
+    app: redis
+    tier: db
+	
+==================================================
+$ cat webapp-deployment.yml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp
+
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      name: webapp-pod
+  template:
+    metadata:
+      labels:
+        name: webapp-pod
+    spec:
+      containers:
+      - name: webapp
+        image: kodekloud/webapp-color
+		
+==================================================
+$ cat webapp-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  name: webapp-service
+spec:
+  ports:
+  - port: 8080
+    protocol: TCP
+    targetPort: 8080
+    nodePort: 30082
+  selector:
+    name: webapp-pod
+  type: NodePort
+status:
+  loadBalancer: {}

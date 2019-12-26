@@ -1,0 +1,109 @@
+kubectl taint nodes node-name key=value:taint-effect
+taint-effect [NoSchedule|PreferNoSchedule|NoExecute]
+eg. 
+kubectl taint nodes node1 app=blue:NoSchedule
+
+### To remove taint from Master Node.
+kubectl taint nodes master node-role.kubernetes.io/master:NoSchedule-
+
+/////////////////Node Selector
+Label Nodes:-
+kubectl label nodes node-name key=value
+kubectl label nodes node1 size=large
+
+///////////Static Pods...
+keep the Pod definition files in /etc/kubernetes/maifests such that kubelets can create the static pods irrespective of the kube apimaster,
+and removing the files from this folder will delete the static pods from the Node.
+
+kubectl get pods --all-namespaces -o wide
+
+kubectl run --restart=Never --image=busybox static-busybox --dry-run -o yaml --command -- sleep 1000 > /etc/kubernetes/manifests/static-busybox.yaml
+
+///////Collecting resource metrics..
+download: git clone https://github.com/kubernetes-incubator/metrics-server.git
+install:  kubectl create -f deploy/1.8+/
+
+////Check application logs...
+kubectl logs -f <POD NAME> [-c <Container Name>]
+
+kubectl apply -f <filename>
+
+/////Rolling Updates and Rollback of Deployments.
+kubectl rollout status deployment/<deployment name>  <<-- To see the status of deployments.
+kubectl rollout history deployment/<deployment name> <<-- to see the deployment history.
+
+//////////////////////////////Deployment Stratergy:- Rolling Updates and Recreate.
+-----------After making changes to yml file, apply the new changes for a new revision.
+> kubectl apply -f deployment-definition.yml
+-----------Directly from command line. [Note: the deployment-definition.yml file will have old value if made changes directly from cmdline.]
+> kubectl set image deployment/myapp-deployment nginx=nginx:1.9.1
+
+////////////////////Rollback of deployments.
+kubectl rollout undo deployment/<deployment-name>
+
+////////Edit Deployments when there is no YML files.
+kubectl edit deployments.apps <deployment-name>
+
+
+//Manual maintainance mode..
+kubectl drain node-1   <--- unschedulable node and ready for maintaninance.
+kubectl drain node01 --ignore-daemonsets [cannot delete daemonset-managed pods]
+kubectl drain master --ignore-daemonsets
+kubectl drain node01 --force --ignore-daemonsets [delete pods not managed by replicasets/cannot delete daemonset-managed pods]
+kubectl cordon node-2   <-- unschedulable node.
+kubectl uncordon node-1
+
+//////Upgrade kubernetes cluster..
+kubeadm upgrade plan
+
+//upgrade kubeadm in master node.
+apt-get update
+apt-get upgrade -y kubeadm=1.12.0-00
+kubeadm upgrade apply v1.12.0
+
+// service kube-apiserver stop/start
+
+//upgrade kubelets in master node.
+apt install kubelet=1.12.0-00
+apt-get upgrade -y kubelet=1.12.0-00
+systemctl restart kubelet
+
+//upgrade in nodes.
+apt-get upgrade -y kubeadm=1.12.0-00
+apt-get upgrade -y kubelet=1.12.0-00
+kubeadm upgrade node config --kubelet-version v1.12.0
+systemctl restart kubelet
+
+
+/// RESTORE ETCD.
+ETCDCTL_API=3 etcdctl snapshot save snapshot.db \
+   --endpoints=https://127.0.0.1:2379 \
+   --cacerts=/etc/etcd/ca.crt \
+   --cert=/etc/etcd/etcd-server.crt \
+   --key=/etc/etcd/etcd-sderver.key
+///Check status
+ETCDCTL_API=3 etcdctl snapshot status snapshot.db
+///restore the backup after stopping kube-apiserver.
+service kube-apiserver stop
+
+ETCDCTL_API=3 etcdctl snapshot restore snapshot.db \
+  --data-dir /var/lib/etcd-from-backup \
+  --initial-cluster master-1=https://192.168.5.11:2380,master-2=https://192.168.5.12:2380 \
+  --initial-cluster-token etcd-cluster-1 \
+  --initial-advertise-peer-urls https://${INTERNAL_IP}:2380
+  
+then change the  config in etcd.service file.
+systemctl daemon-reload
+service etcd restart
+service kube-apiserver start
+
+
+
+
+kubectl logs etcd-master -n kube-system 
+kubectl describe pod etcd-master -n kube-system
+kubectl describe pod etcd-master -n kube-system | grep listen-client-urls
+
+/tmp/snapshot-pre-boot.db
+
+ETCDCTL_API=3 etcdctl snapshot save  /tmp/snapshot-pre-boot.db
